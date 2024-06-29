@@ -1,0 +1,93 @@
+class SharedResource {
+    private int resourceValue = 0;
+    private int readersCount = 0;
+    private boolean isWriting = false;
+
+    public synchronized void readResource(String threadName) throws InterruptedException {
+        while (isWriting) {
+            wait();
+        }
+        readersCount++;
+        System.out.println(threadName + " is reading resource: " + resourceValue + ", Readers: " + readersCount);
+        Thread.sleep(100); // Simulate reading time
+        readersCount--;
+        if (readersCount == 0) {
+            notify();
+        }
+    }
+
+    public synchronized void writeResource(String threadName, int newValue) throws InterruptedException {
+        while (readersCount > 0 || isWriting) {
+            wait();
+        }
+        isWriting = true;
+        System.out.println(threadName + " is writing resource with value: " + newValue);
+        resourceValue = newValue;
+        Thread.sleep(200); // Simulate writing time
+        isWriting = false;
+        notifyAll();
+    }
+}
+
+class Reader implements Runnable {
+    private final SharedResource resource;
+    private final String name;
+
+    public Reader(SharedResource resource, String name) {
+        this.resource = resource;
+        this.name = name;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                resource.readResource(name);
+                Thread.sleep((int) (Math.random() * 500)); // Random delay between reads
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+}
+
+class Writer implements Runnable {
+    private final SharedResource resource;
+    private final String name;
+
+    public Writer(SharedResource resource, String name) {
+        this.resource = resource;
+        this.name = name;
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                int newValue = (int) (Math.random() * 100);
+                resource.writeResource(name, newValue);
+                Thread.sleep((int) (Math.random() * 1000)); // Random delay between writes
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+}
+
+public class ReadersWritersProblem {
+    public static void main(String[] args) {
+        SharedResource sharedResource = new SharedResource();
+        Thread[] readers = new Thread[3];
+        Thread[] writers = new Thread[2];
+
+        for (int i = 0; i < readers.length; i++) {
+            readers[i] = new Thread(new Reader(sharedResource, "Reader-" + (i + 1)));
+            readers[i].start();
+        }
+
+        for (int i = 0; i < writers.length; i++) {
+            writers[i] = new Thread(new Writer(sharedResource, "Writer-" + (i + 1)));
+            writers[i].start();
+        }
+    }
+}
